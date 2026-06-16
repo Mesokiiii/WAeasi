@@ -1,0 +1,66 @@
+# Build outputs ---------------------------------------------------------------
+/target/
+**/target/
+*.rlib
+*.rmeta
+*.pdb
+*.o
+*.obj
+
+# Cargo -----------------------------------------------------------------------
+**/Cargo.lock.bak
+.cargo/.package-cache
+
+# Node / TypeScript SDK -------------------------------------------------------
+node_modules/
+**/node_modules/
+*.tsbuildinfo
+sdk/typescript/dist/
+sdk/typescript/.waeasi-cache/
+
+# Python SDK ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+sdk/python/build/
+sdk/python/dist/
+
+# Go SDK ----------------------------------------------------------------------
+sdk/go/bin/
+
+# Component artefacts ---------------------------------------------------------
+**/dist/
+*.wasm
+*.cwasm
+*.cwasm.aot
+*.waeasi-bundle
+
+# Generated WIT bindings ------------------------------------------------------
+sdk/typescript/src/wasi/generated/
+sdk/python/src/waeasi/wasi/generated/
+sdk/go/wasi/generated/
+wit/deps/
+
+# Secrets ---------------------------------------------------------------------
+*.pem
+*.key
+*.hex
+my-key.*
+.env
+.env.local
+
+# Editor / OS -----------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Misc ------------------------------------------------------------------------
+*.log
+.tmp/

@@ -1,0 +1,13 @@
+[package]
+name        = "runner"
+description = "Convenience launcher: builds the kernel and runs it under QEMU."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "runner"
+path = "src/main.rs"
+
+[dependencies]

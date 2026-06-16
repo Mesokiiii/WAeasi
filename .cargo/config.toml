@@ -1,0 +1,30 @@
+# Cargo configuration for the WAeasi workspace.
+#
+# Stage-9 partitioning:
+#   * Default `cargo check` / `cargo build` builds for the host target
+#     (Windows / Linux / macOS — what the toolchain provides as default).
+#     Host tools (waeasictl, testkit, runner, waeasi-init, manifest) and
+#     `manifest` library compile cleanly out-of-the-box.
+#   * Kernel uses bare-metal `x86_64-waeasi.json` and rebuilds `core`
+#     from source — accessed via the `kbuild` / `kcheck` aliases below
+#     which inject `-Zbuild-std`.
+#   * Wasm components compile with `--target wasm32-unknown-unknown`.
+#
+# `[unstable]` is intentionally absent — `build-std` is per-alias.
+
+[target.'cfg(target_os = "none")']
+runner = "tools/runner/qemu.ps1"
+
+[alias]
+kbuild     = "build  -p kernel --target targets/x86_64-waeasi.json --release -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+kcheck     = "check  -p kernel --target targets/x86_64-waeasi.json           -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+kclippy    = "clippy -p kernel --target targets/x86_64-waeasi.json -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+krun       = "run    -p kernel --target targets/x86_64-waeasi.json --release -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+
+# Wasm components.
+wbuild     = "build  --target wasm32-unknown-unknown -p hello-world -p tls-terminator -p http-server -p healthz"
+wcheck     = "check  --target wasm32-unknown-unknown -p hello-world -p tls-terminator -p http-server -p healthz"
+
+# Host-tool shortcuts.
+toolcheck  = "check  -p waeasictl -p testkit -p waeasi-init -p runner -p manifest"
+toolbuild  = "build  -p waeasictl -p testkit -p waeasi-init -p runner -p manifest"

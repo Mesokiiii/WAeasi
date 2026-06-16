@@ -1,0 +1,60 @@
+// WAeasi worlds — single source of truth for every host/guest binding.
+//
+// Each world enumerates the precise set of imports a component may use
+// and the exports the kernel will invoke.  Worlds are versioned: the
+// kernel refuses to load a component whose world hash is not registered
+// in `kernel/src/wasm/linker.rs::DEFAULT_IMPORTS`.
+//
+// Public worlds:
+//   * `handler`   — request/response style (HTTP, RPC, queue-message).
+//   * `scheduled` — cron / timer-driven background work.
+//   * `stream`    — long-lived bidirectional stream (TLS, websocket).
+//
+// All three share a base set of imports declared via `include base`.
+
+package waeasi:host@0.1.0;
+
+interface base {
+    use wasi:io/streams@0.2.0.{input-stream, output-stream};
+    use wasi:clocks/monotonic-clock@0.2.0.{instant, duration};
+}
+
+world handler {
+    import wasi:http/types@0.2.0;
+    import wasi:http/outgoing-handler@0.2.0;
+    import wasi:io/streams@0.2.0;
+    import wasi:io/poll@0.2.0;
+    import wasi:clocks/monotonic-clock@0.2.0;
+    import wasi:clocks/wall-clock@0.2.0;
+    import wasi:random/random@0.2.0;
+    import wasi:keyvalue/store@0.2.0-draft;
+    import waeasi:obs/log@0.1.0;
+    import waeasi:obs/metrics@0.1.0;
+    import waeasi:obs/tracing@0.1.0;
+
+    export wasi:http/incoming-handler@0.2.0;
+}
+
+world scheduled {
+    import wasi:clocks/monotonic-clock@0.2.0;
+    import wasi:clocks/wall-clock@0.2.0;
+    import wasi:io/streams@0.2.0;
+    import wasi:random/random@0.2.0;
+    import waeasi:obs/log@0.1.0;
+    import waeasi:obs/metrics@0.1.0;
+    import waeasi:sched/timer@0.1.0;
+
+    export waeasi:sched/run@0.1.0;
+}
+
+world stream {
+    import wasi:io/streams@0.2.0;
+    import wasi:io/poll@0.2.0;
+    import wasi:clocks/monotonic-clock@0.2.0;
+    import wasi:sockets/tcp@0.2.0;
+    import wasi:sockets/network@0.2.0;
+    import waeasi:obs/log@0.1.0;
+    import waeasi:obs/tracing@0.1.0;
+
+    export waeasi:stream/handler@0.1.0;
+}

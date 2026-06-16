@@ -1,0 +1,14 @@
+[package]
+name        = "manifest"
+description = "WAeasi component manifest schema + parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name       = "waeasi_manifest"
+path       = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]

@@ -1,0 +1,11 @@
+[package]
+name        = "waeasi-init"
+description = "WAeasi component scaffolder — bootstrap a new Wasm component"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "waeasi-init"
+path = "src/main.rs"

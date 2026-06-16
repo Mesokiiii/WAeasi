@@ -1,0 +1,21 @@
+[package]
+name        = "waeasi-builder"
+version     = "0.1.0"
+edition     = "2021"
+description = "Language-agnostic build pipeline for WAeasi components."
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/waeasi/waeasi"
+publish     = false
+
+[[bin]]
+name = "waeasi-builder"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+sha2        = "0.10"
+ed25519-dalek = { version = "2.1", default-features = false, features = ["std", "rand_core"] }
+rand_core   = { version = "0.6", features = ["std"] }
+base64      = "0.22"

@@ -1,0 +1,15 @@
+[package]
+name        = "hello-world"
+description = "Example Wasm component for WAeasi (prints hello via WASI stdout)"
+version.workspace    = true
+edition.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+
+[lib]
+crate-type = ["cdylib"]
+
+# This component is built separately for `wasm32-unknown-unknown` (or
+# `wasm32-wasi-preview2`) and dropped into the kernel's `components/` arena.
+# It is **not** built for the kernel target.
+[target.'cfg(target_arch = "wasm32")'.dependencies]

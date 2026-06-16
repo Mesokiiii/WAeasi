@@ -1,0 +1,67 @@
+# =============================================================================
+# WAeasi — Bare-metal WebAssembly Microkernel (Cloud-Native OS)
+# Workspace root.
+#
+# Architecture chain we replace:
+#   Hardware -> Linux -> Docker -> App   ❌ (~30M LoC of irrelevance)
+#   Hardware -> WAeasi (Rust no_std) -> Wasm Component   ✅
+#
+# Core principles:
+#   * WASI is the ONLY syscall ABI (no POSIX).
+#   * Single Address Space (SAS) — software-isolation via Wasm bytecode.
+#   * Async-first kernel: every Wasm instance is a `Future`.
+# =============================================================================
+[workspace]
+resolver = "2"
+members = [
+    "kernel",
+    "components/hello-world",
+    "components/tls-terminator",
+    "components/http-server",
+    "components/healthz",
+    "components/manifest",
+    "tools/runner",
+    "tools/waeasictl",
+    "tools/testkit",
+    "tools/waeasi-init",
+    "builder",
+]
+exclude = []
+
+[workspace.package]
+version      = "0.1.0"
+edition      = "2021"
+authors      = ["WAeasi Authors"]
+license      = "MIT OR Apache-2.0"
+repository   = "https://github.com/WAeasi/WAeasi"
+
+[workspace.dependencies]
+# no_std primitives
+spin              = { version = "0.9",  default-features = false, features = ["mutex", "spin_mutex", "once", "lazy"] }
+linked_list_allocator = { version = "0.10" }
+bitflags          = { version = "2.5",  default-features = false }
+log               = { version = "0.4",  default-features = false }
+volatile          = "0.4"
+x86_64            = { version = "0.15" }
+uart_16550        = "0.3"
+pic8259           = "0.10"
+pc-keyboard       = "0.7"
+crossbeam-queue   = { version = "0.3",  default-features = false, features = ["alloc"] }
+futures-util      = { version = "0.3",  default-features = false, features = ["alloc"] }
+hashbrown         = { version = "0.14", default-features = false }
+lazy_static       = { version = "1.5",  features = ["spin_no_std"] }
+
+[profile.dev]
+panic        = "abort"
+opt-level    = 1
+debug        = true
+lto          = false
+codegen-units = 16
+
+[profile.release]
+panic        = "abort"
+opt-level    = 3
+lto          = "fat"
+codegen-units = 1
+debug        = false
+strip        = true

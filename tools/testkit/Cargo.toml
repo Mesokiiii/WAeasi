@@ -1,0 +1,11 @@
+[package]
+name        = "testkit"
+description = "WAeasi integration test harness — boot kernel under QEMU, drive scenarios"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "testkit"
+path = "src/main.rs"

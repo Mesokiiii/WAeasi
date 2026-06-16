@@ -1,0 +1,12 @@
+[package]
+name        = "tls-terminator"
+description = "WAeasi component — terminates TLS 1.3 and forwards plaintext to http-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]

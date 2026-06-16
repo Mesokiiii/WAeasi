@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.waeasi-cache/
+*.log
+.env
+.env.local
+*.waeasi-bundle

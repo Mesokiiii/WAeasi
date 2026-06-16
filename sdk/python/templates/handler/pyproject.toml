@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "__NAME__"
+version = "0.1.0"
+description = "WAeasi component (Python)"
+requires-python = ">=3.11"
+dependencies = ["waeasi>=0.1.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/__NAME__"]
+
+[tool.waeasi]
+module    = "__NAME__.handler"
+out_dir   = "dist"
+wit_path  = "../../wit"
+key_env   = "WAEASI_SIGN_KEY"
+
+[tool.waeasi.manifest]
+name             = "__NAME__"
+version          = "0.1.0"
+world            = "handler"
+rights           = ["CLOCK_MONO", "RANDOM_SEC"]
+cpu_shares       = 100
+memory_pages_max = 256
+linear_mem_max   = "16 MiB"

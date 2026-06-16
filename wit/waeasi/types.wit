@@ -1,0 +1,40 @@
+// Cross-world auxiliary types and worlds for non-HTTP scenarios.
+
+package waeasi:sched@0.1.0;
+
+interface timer {
+    type schedule-id = u32;
+
+    record schedule {
+        cron: string,           // RFC-5545 subset cron expression
+        jitter-ms: u32,         // additive random jitter
+    }
+
+    register: func(s: schedule) -> schedule-id;
+    cancel: func(id: schedule-id);
+}
+
+interface run {
+    record invocation {
+        schedule-id: u32,
+        wall-time-ns: u64,
+        retry-count: u8,
+    }
+
+    enum outcome { ok, retry, skip, fail }
+
+    on-tick: func(inv: invocation) -> outcome;
+}
+
+package waeasi:stream@0.1.0;
+
+interface handler {
+    use wasi:io/streams@0.2.0.{input-stream, output-stream};
+
+    record peer {
+        addr: string,           // ip:port
+        tls-sni: option<string>,
+    }
+
+    on-connect: func(p: peer, rx: input-stream, tx: output-stream);
+}

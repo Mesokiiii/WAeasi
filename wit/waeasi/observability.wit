@@ -1,0 +1,45 @@
+// WAeasi observability surface — log / metrics / tracing.
+//
+// These three interfaces are the *only* way a guest component can emit
+// telemetry.  They map 1:1 onto kernel/src/obs/{log,metrics,tracing}.
+//
+// Design notes
+//   * `log.emit` is fire-and-forget; the host owns the ring buffer and
+//     drops on overflow.  Guest never blocks on log volume.
+//   * `metrics.counter / gauge / histogram` carry pre-registered handles
+//     (u64) so that hot paths avoid string lookup on every increment.
+//   * `tracing.span` returns an opaque `span` resource; dropping the
+//     resource closes the span via `wasi:io` resource semantics.
+
+package waeasi:obs@0.1.0;
+
+interface log {
+    enum level { trace, debug, info, warn, error }
+
+    emit: func(level: level, target: string, msg: string);
+    enabled: func(level: level, target: string) -> bool;
+}
+
+interface metrics {
+    type counter = u64;
+    type gauge   = u64;
+    type histogram = u64;
+
+    register-counter: func(name: string) -> counter;
+    register-gauge: func(name: string) -> gauge;
+    register-histogram: func(name: string, buckets: list<f64>) -> histogram;
+
+    counter-add: func(c: counter, value: u64);
+    gauge-set: func(g: gauge, value: s64);
+    histogram-observe: func(h: histogram, value: f64);
+}
+
+interface tracing {
+    resource span {
+        constructor(name: string);
+        attribute: func(key: string, value: string);
+        event: func(name: string);
+    }
+
+    current: func() -> option<borrow<span>>;
+}

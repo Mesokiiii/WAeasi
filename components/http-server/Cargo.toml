@@ -1,0 +1,12 @@
+[package]
+name        = "http-server"
+description = "WAeasi component — HTTP/1.1 server fronted by tls-terminator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
