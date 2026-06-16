@@ -13,7 +13,7 @@
 # `[unstable]` is intentionally absent — `build-std` is per-alias.
 
 [target.'cfg(target_os = "none")']
-runner = "tools/runner/qemu.ps1"
+runner = ["cargo", "run", "--quiet", "--release", "-p", "runner", "--"]
 
 [alias]
 kbuild     = "build  -p kernel --target targets/x86_64-waeasi.json --release -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"

@@ -20,6 +20,12 @@ PHYS_BASE     = 0x100000;
 SECTIONS {
     . = KERNEL_OFFSET + PHYS_BASE;
 
+    .requests ALIGN(8) : AT(ADDR(.requests) - KERNEL_OFFSET) {
+        KEEP(*(.requests_start_marker))
+        KEEP(*(.requests))
+        KEEP(*(.requests_end_marker))
+    }
+
     .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_OFFSET) {
         KEEP(*(.multiboot_header))
         KEEP(*(.boot.text))

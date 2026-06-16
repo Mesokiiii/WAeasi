@@ -50,6 +50,7 @@ crossbeam-queue   = { version = "0.3",  default-features = false, features = ["a
 futures-util      = { version = "0.3",  default-features = false, features = ["alloc"] }
 hashbrown         = { version = "0.14", default-features = false }
 lazy_static       = { version = "1.5",  features = ["spin_no_std"] }
+limine            = { version = "0.6", default-features = false }
 
 [profile.dev]
 panic        = "abort"

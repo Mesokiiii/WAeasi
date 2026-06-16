@@ -76,6 +76,7 @@ pub fn try_parse(addr: usize) -> Option<BootInfo> {
         mem_regions: super::memmap::normalize(regions),
         cmdline,
         modules,
+        hhdm_offset: 0,
     })
 }
 

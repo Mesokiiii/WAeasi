@@ -1,6 +1,6 @@
 [package]
 name        = "runner"
-description = "Convenience launcher: builds the kernel and runs it under QEMU."
+description = "Convenience launcher: builds a bootable FAT image and runs the kernel under QEMU."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,3 +11,6 @@ name = "runner"
 path = "src/main.rs"
 
 [dependencies]
+# Pure-Rust FAT12/16/32 driver — used to assemble the boot image
+# without external utilities (xorriso / mtools / grub-mkrescue).
+fatfs = { version = "0.3", default-features = false, features = ["std", "alloc"] }
