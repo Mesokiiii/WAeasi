@@ -1,27 +1,26 @@
 //! Boot trampoline for x86_64 — pure higher-half.
 //!
-//! Contract with the bootloader (Limine v6 / Multiboot2 + GRUB shim):
+//! Contract with `arch::x86_64::boot32` (Multiboot1 path) or with a
+//! Limine v6 / Multiboot2 + GRUB shim (alternate path):
 //!   * long mode is on,
-//!   * the first 4 GiB of physical RAM are identity-mapped **and** mirrored
-//!     at `DIRECT_MAP_BASE`,
-//!   * the kernel ELF is mapped at its linker-script VMA (higher half),
-//!   * the bootloader jumps to `_start` at its higher-half virtual address,
+//!   * the first GiB of physical RAM is identity-mapped, mirrored at
+//!     `DIRECT_MAP_BASE`, and mirrored at the kernel's higher-half VMA,
+//!   * the bootloader / shim jumps to `_start` at its higher-half virtual
+//!     address,
 //!   * `rdi` carries the bootloader info pointer (System V AMD64 ABI).
 //!
-//! `_start` therefore runs with RIP already in the higher half, so every
-//! intra-kernel `call rel32` fits.  No low-half trampoline is needed.
+//! The boot stack is reserved by the linker as a dedicated section
+//! that sits **after** `.bss`, so `clear_bss` cannot scribble on it,
+//! and so we can load `rsp` via `movabs` against the absolute symbol
+//! `__kernel_stack_top` (which is exact regardless of how far it sits
+//! from `_start`).
 use core::arch::naked_asm;
-
-/// 64 KiB initial stack — enough to bring up `memory::heap`.
-#[repr(align(16))]
-struct BootStack([u8; 64 * 1024]);
-#[unsafe(no_mangle)]
-static mut BOOT_STACK: BootStack = BootStack([0; 64 * 1024]);
 
 extern "C" {
     fn kernel_entry(boot_info_ptr: usize) -> !;
     static __bss_start: u8;
     static __bss_end: u8;
+    static __kernel_stack_top: u8;
 }
 
 /// Real entry point.  `#[naked]` + `naked_asm!` per Rust 2024 ABI.
@@ -29,7 +28,7 @@ extern "C" {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
     naked_asm!(
-        "lea rsp, [rip + {stack} + {stack_size}]",
+        "movabs rsp, offset {stack_top}",
         "xor rbp, rbp",
         "mov r12, rdi",
         "call {bss_clear}",
@@ -38,10 +37,9 @@ pub unsafe extern "C" fn _start() -> ! {
         "2: cli",
         "   hlt",
         "   jmp 2b",
-        stack       = sym BOOT_STACK,
-        stack_size  = const 64 * 1024,
-        bss_clear   = sym clear_bss,
-        entry       = sym kernel_entry,
+        stack_top = sym __kernel_stack_top,
+        bss_clear = sym clear_bss,
+        entry     = sym kernel_entry,
     );
 }
 

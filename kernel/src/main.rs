@@ -1,18 +1,21 @@
-//! Kernel binary entry point — Stage 8 init graph.
+//! Kernel binary entry point.
 //!
-//! ```text
-//!   serial → log → arch::init_early → boot::parse → memory
-//!                → arch::init_late → per_cpu → security
-//!                → obs (tracing+metrics) → crypto self-test
-//!                → acpi::parse → smp::start_aps → executor::init_pool
-//!                → sync → drivers → wasm → wasi → admin → sched
-//! ```
+//! The init graph is partitioned in two: a **core** path that brings
+//! up everything the kernel needs to print structured logs and run
+//! its async executor, and an **optional** path (gated by the
+//! `full-init` cargo feature) that touches the still-unverified
+//! crypto / ACPI / SMP / drivers stack.
+//!
+//! Goal of the core path: every line printed is a `log::info!()` from
+//! a subsystem that has actually been validated end-to-end on QEMU.
 #![no_std]
 #![no_main]
 
+use waeasi_kernel::{arch, boot, drivers, kernel_main, log_, memory};
+
+#[cfg(feature = "full-init")]
 use waeasi_kernel::{
-    acpi, admin, arch, boot, crypto, drivers, kernel_main, log_, memory,
-    obs, sched, security, sync, wasi, wasm,
+    acpi, admin, crypto, obs, sched, security, sync, wasi, wasm,
 };
 
 #[unsafe(no_mangle)]
@@ -21,62 +24,59 @@ pub extern "C" fn kernel_entry(boot_info_ptr: usize) -> ! {
     drivers::serial::init();
     log_::init();
 
-    // 2. Architecture: GDT + IDT + exceptions.  No allocation yet.
+    // 2. GDT + IDT + exception stubs (so any fault from here on
+    //    surfaces as a structured `wadbg`-friendly dump rather than a
+    //    silent triple-fault).
     arch::init_early();
+
+    log::info!("");
+    log::info!("===============================================");
+    log::info!("  Hello, World!  WAeasi kernel is alive.");
+    log::info!("===============================================");
+    log::info!("[main] kernel_entry, boot_info_ptr={:#x}", boot_info_ptr);
 
     // 3. Boot info from the bootloader.
     let boot_info = boot::parse(boot_info_ptr);
+    log::info!("[main] boot: {} regions, cmdline='{}'",
+               boot_info.mem_regions.len(), boot_info.cmdline);
 
-    // 4. Memory: physical frames → paging → kernel heap → SAS arena.
+    // 4. Memory: physical frames -> paging -> kernel heap -> SAS arena.
     memory::init(boot_info_ptr);
 
-    // 5. Architecture: APIC + IRQ enable.
+    // 5. APIC + IRQ enable.
     arch::init_late();
 
-    // 6. Per-CPU GS-base (security needs it for stack canaries).
+    // 6. Per-CPU GS-base.
     arch::x86_64::per_cpu::init(64);
 
-    // 7. Security primitives: capabilities, audit, W⊕X, Spectre, canary.
+    #[cfg(feature = "full-init")]
+    full_init();
+
+    log::info!("[main] core init done; entering executor idle loop.");
+    log::info!("[main] (full-init feature is {})",
+               if cfg!(feature = "full-init") { "ON" } else { "OFF — verified subsystems only" });
+
+    kernel_main();
+}
+
+#[cfg(feature = "full-init")]
+fn full_init() {
     security::init();
-
-    // 8. Observability — tracing + metrics registry.  Must precede any
-    //    component that wants to emit structured spans.
     obs::init();
-
-    // 9. Cryptographic self-test.  Failure here aborts boot — Ed25519
-    //    must be correct before any TLS handshake completes.
     if let Err(e) = crypto::ed25519::self_test() {
         panic!("crypto self-test failed: {}", e);
     }
-
-    // 10. ACPI walk — populates topology + HPET + MCFG.
     let acpi_info = acpi::parse();
     if let Some(madt) = &acpi_info.madt {
         log::info!("[main] ACPI MADT: {} CPUs, {} I/O APICs",
                    madt.cpus.len(), madt.ioapics.len());
     }
-
-    // 11. SMP startup + executor pool.
     let cpu_count = arch::x86_64::smp::start_aps() as usize;
     sched::executor::Executor::init_pool(cpu_count.max(1));
-
-    // 12. Sync layer — Once cells warm-up.
     sync::init();
-
-    // 13. Drivers + Wasm engine + WASI.
     drivers::init();
     wasm::init();
     wasi::init();
-
-    // 14. Admin endpoint (waeasictl protocol over TCP).
     admin::init();
-
-    // 15. Spawn the boot service that loads `components/`.
     sched::bootstrap();
-
-    log::info!("[main] boot_info: {} regions, cmdline='{}'",
-               boot_info.mem_regions.len(), boot_info.cmdline);
-
-    // 16. Never returns — runs the async executor forever.
-    kernel_main();
 }

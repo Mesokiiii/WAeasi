@@ -3,8 +3,8 @@
 //! Initialization is split into two phases so the kernel can bring up
 //! the heap *between* them:
 //!
-//!   * `init_early` — CPU feature probe + GDT + IDT.  No heap, no MMIO
-//!                    mapping; uses static storage only.
+//!   * `init_early` — CPU feature probe + GDT + IDT.  No allocation,
+//!                    no MMIO mapping; uses static storage only.
 //!   * `init_late`  — APIC (needs `map_mmio` → frame_alloc) + enables
 //!                    hardware IRQs.
 #![allow(unused_imports)]

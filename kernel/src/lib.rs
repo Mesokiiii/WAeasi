@@ -32,6 +32,7 @@ pub mod http;
 pub mod ipc;
 pub mod jit;
 pub mod log_;
+pub mod mem;
 pub mod memory;
 pub mod net;
 pub mod obs;
@@ -52,8 +53,28 @@ pub const BANNER: &str = "\
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[cfg(feature = "full-init")]
 pub fn kernel_main() -> ! {
     log::info!("{}", BANNER);
     log::info!("kernel v{} booting...", VERSION);
     sched::executor::Executor::global().run()
+}
+
+/// Minimal `kernel_main` for the verified-subsystems-only build.
+///
+/// The LAPIC timer is configured at 100 Hz (`apic::TICK_HZ`), so every
+/// `hlt` here returns once per timer tick.  Print a heartbeat every
+/// 100 ticks (~1 s) so the operator can confirm the kernel is alive.
+#[cfg(not(feature = "full-init"))]
+pub fn kernel_main() -> ! {
+    log::info!("{}", BANNER);
+    log::info!("kernel v{} booting (verified-subsystems-only build)", VERSION);
+    let mut tick: u64 = 0;
+    loop {
+        unsafe { core::arch::asm!("hlt", options(nomem, nostack, preserves_flags)) };
+        tick = tick.wrapping_add(1);
+        if tick % 100 == 0 {
+            log::info!("[heartbeat] alive, t={}s", tick / 100);
+        }
+    }
 }

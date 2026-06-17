@@ -23,6 +23,11 @@ virtio        = []
 e1000         = []
 trace-sched   = []
 trace-wasm    = []
+# Bring up the full init graph (crypto self-test, ACPI walk, SMP,
+# drivers, Wasm engine, WASI, admin endpoint, scheduler bootstrap).
+# Off by default: those subsystems are written but not yet verified
+# end-to-end on QEMU and currently fault inside one of them.
+full-init     = []
 
 [dependencies]
 spin             = { workspace = true }

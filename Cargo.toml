@@ -21,6 +21,7 @@ members = [
     "components/healthz",
     "components/manifest",
     "tools/runner",
+    "tools/wadbg",
     "tools/waeasictl",
     "tools/testkit",
     "tools/waeasi-init",
@@ -60,9 +61,15 @@ lto          = false
 codegen-units = 16
 
 [profile.release]
-panic        = "abort"
-opt-level    = 3
-lto          = "fat"
+panic         = "abort"
+opt-level     = 3
+lto           = "fat"
 codegen-units = 1
-debug        = false
-strip        = true
+# Keep DWARF and the symbol table in the kernel ELF so `wadbg` /
+# `llvm-addr2line` can resolve crash RIPs back to source locations.
+# The runner's ELF32 repackage already runs `--strip-unneeded` when it
+# converts to the Multiboot1-acceptable wrapper, so the on-disk image
+# QEMU loads stays small; the original ELF in `target/.../release/`
+# keeps the debug info we need.
+debug         = "full"
+strip         = false

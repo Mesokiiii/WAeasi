@@ -12,6 +12,12 @@
 #
 # `[unstable]` is intentionally absent — `build-std` is per-alias.
 
+[target.x86_64-waeasi]
+# Force frame pointers in the kernel build so `wadbg` (and the kernel's
+# own `idt_dump::backtrace`) can walk the rbp-chain on every exception
+# without parsing DWARF unwind tables on-target.
+rustflags = ["-Cforce-frame-pointers=yes"]
+
 [target.'cfg(target_os = "none")']
 runner = ["cargo", "run", "--quiet", "--release", "-p", "runner", "--"]
 

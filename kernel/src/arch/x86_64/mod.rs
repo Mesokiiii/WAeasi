@@ -1,6 +1,7 @@
 //! x86_64 architecture support.
 pub mod apic;
 pub mod boot;
+pub mod boot32;
 pub mod cpu;
 pub mod cpuid;
 pub mod cr;

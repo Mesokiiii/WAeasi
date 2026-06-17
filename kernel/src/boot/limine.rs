@@ -11,7 +11,6 @@
 //! The two markers (start / end) bound the request region so Limine can
 //! discover requests without parsing the whole ELF.
 
-use alloc::vec::Vec;
 use limine::memmap::{
     MEMMAP_ACPI_NVS, MEMMAP_ACPI_RECLAIMABLE, MEMMAP_BAD_MEMORY,
     MEMMAP_BOOTLOADER_RECLAIMABLE, MEMMAP_EXECUTABLE_AND_MODULES,
@@ -20,8 +19,8 @@ use limine::memmap::{
 use limine::request::{HhdmRequest, MemmapRequest};
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
 
-use super::memmap::{Kind, Region};
-use super::BootInfo;
+use super::memmap::{self, Kind, Region};
+use super::{MAX_REGIONS, regions_buf, set_modules_len, set_regions_len};
 
 #[used]
 #[link_section = ".requests"]
@@ -48,31 +47,34 @@ pub fn is_limine_boot() -> bool {
     BASE_REVISION.is_supported() && MEMORY_MAP.response().is_some()
 }
 
-/// Build canonical [`BootInfo`] from Limine responses.  Returns `None`
-/// when Limine did not load us (so callers can fall through).
-pub fn try_parse() -> Option<BootInfo> {
+/// Populate the static region buffer from Limine's responses.  Returns
+/// `true` on success, `false` if Limine did not load us (caller falls
+/// through to other protocols).
+///
+/// **No-alloc** — writes directly into `boot::REGIONS_BUF`.
+pub fn try_parse(hhdm_offset: &mut u64) -> bool {
     if !is_limine_boot() {
-        return None;
+        return false;
     }
-    let mmap = MEMORY_MAP.response()?;
-    let hhdm_offset = HHDM.response().map(|r| r.offset).unwrap_or(0);
 
-    let mmap_entries = mmap.entries();
-    let mut regions: Vec<Region> = Vec::with_capacity(mmap_entries.len());
-    for e in mmap_entries {
-        regions.push(Region {
+    let Some(mmap) = MEMORY_MAP.response() else { return false };
+    *hhdm_offset = HHDM.response().map(|r| r.offset).unwrap_or(0);
+
+    let buf = regions_buf();
+    let mut n = 0;
+    for e in mmap.entries() {
+        if n >= MAX_REGIONS { break; }
+        buf[n] = Region {
             start: e.base as usize,
             end:   (e.base + e.length) as usize,
             kind:  classify(e.type_),
-        });
+        };
+        n += 1;
     }
-
-    Some(BootInfo {
-        mem_regions: super::memmap::normalize(regions),
-        cmdline:     "",
-        modules:     Vec::new(),
-        hhdm_offset,
-    })
+    n = memmap::normalize(buf, n);
+    set_regions_len(n);
+    set_modules_len(0);
+    true
 }
 
 fn classify(t: u64) -> Kind {

@@ -2,8 +2,12 @@
 //!
 //! The bootloader presents wildly different formats — Multiboot2 has
 //! E820-style regions, Limine has its own.  We normalize all of them
-//! into a sorted `Vec<Region>` here.
-use alloc::vec::Vec;
+//! into a sorted slice here.
+//!
+//! **No-alloc**: this module runs *before* `memory::init`, so it must
+//! not touch the heap.  Storage is provided by the caller as a
+//! `&mut [Region]` slice, and `normalize` sorts/merges in-place,
+//! returning the canonical length.
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -25,25 +29,44 @@ pub struct Region {
 }
 
 impl Region {
+    pub const EMPTY: Region = Region {
+        start: 0, end: 0, kind: Kind::Reserved,
+    };
+
     pub fn len(&self) -> usize { self.end.saturating_sub(self.start) }
     pub fn is_usable(&self) -> bool { matches!(self.kind, Kind::Usable) }
 }
 
-/// Sort + merge adjacent regions of the same kind.  After this the slice
-/// is canonical and can be binary-searched.
-pub fn normalize(mut v: Vec<Region>) -> Vec<Region> {
-    v.sort_by_key(|r| r.start);
-    let mut out: Vec<Region> = Vec::with_capacity(v.len());
-    for r in v {
-        if let Some(last) = out.last_mut() {
-            if last.kind == r.kind && last.end >= r.start {
-                last.end = last.end.max(r.end);
-                continue;
-            }
+/// Sort `regions[..len]` by `start`, then merge adjacent runs of the
+/// same kind in-place.  Returns the new (possibly smaller) length.
+///
+/// Uses an O(N²) insertion sort to avoid recursion / stack growth in
+/// the no-alloc early-boot context; `len` is bounded by the caller's
+/// buffer size (typically 64).
+pub fn normalize(regions: &mut [Region], mut len: usize) -> usize {
+    // 1. Insertion sort by `start`.
+    for i in 1..len {
+        let mut j = i;
+        while j > 0 && regions[j - 1].start > regions[j].start {
+            regions.swap(j - 1, j);
+            j -= 1;
         }
-        out.push(r);
     }
-    out
+    // 2. In-place merge of adjacent same-kind regions.
+    if len <= 1 { return len; }
+    let mut w = 0;
+    for r in 1..len {
+        let cur = regions[r];
+        let last = regions[w];
+        if last.kind == cur.kind && last.end >= cur.start {
+            regions[w].end = last.end.max(cur.end);
+        } else {
+            w += 1;
+            regions[w] = cur;
+        }
+    }
+    len = w + 1;
+    len
 }
 
 /// Largest contiguous usable region — a quick way for early

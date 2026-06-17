@@ -1,24 +1,47 @@
 /* =============================================================================
- * WAeasi linker script — pure higher-half x86_64 kernel.
+ * WAeasi linker script.
  *
- * Boot contract (Limine v6):
- *   * the bootloader switches the CPU to long mode,
- *   * sets up identity-mapping for the first 4 GiB,
- *   * AND maps the kernel image starting at KERNEL_OFFSET (higher half),
- *   * jumps to `_start` at its higher-half virtual address.
+ * The kernel is a higher-half x86_64 image (VMA = `KERNEL_OFFSET +
+ * PHYS_BASE`).  A small low-half boot trampoline (`.boot32` / `.boot64`)
+ * runs first in 32-bit protected mode, sets up long mode + paging, and
+ * trampolines into the higher-half `_start`.  After that point every
+ * intra-kernel symbol fits in a `call rel32`.
  *
- * Result: every symbol — including `_start` — has a higher-half VMA, so
- * intra-kernel `call rel32`s always fit. There is **no** low-half trampoline.
- * The 1 MiB physical load address still applies for the LMA so the ELF can
- * be loaded by GRUB/Limine.
+ * The boot region reserves 64 KiB at PHYS_BASE for the trampoline,
+ * its page tables, GDT and stack.  The higher-half image starts at
+ * `PHYS_BASE + BOOT_RESERVE` (LMA) / `KERNEL_OFFSET + PHYS_BASE +
+ * BOOT_RESERVE` (VMA).  Boot sections deliberately have VMA == LMA so
+ * 32-bit code can address them with plain absolute offsets.
  * ========================================================================== */
-ENTRY(_start)
+ENTRY(_mb_start)
 
 KERNEL_OFFSET = 0xFFFFFFFF80000000;
 PHYS_BASE     = 0x100000;
+BOOT_RESERVE  = 0x20000;            /* 128 KiB for trampoline + tables + stack */
 
 SECTIONS {
-    . = KERNEL_OFFSET + PHYS_BASE;
+    /* -------------------------------------------------------------- *
+     *  Low-memory boot trampoline (VMA == LMA)                       *
+     * -------------------------------------------------------------- */
+    . = PHYS_BASE;
+
+    .boot32 ALIGN(8) : {
+        KEEP(*(.multiboot_header))
+        KEEP(*(.boot32))
+    }
+
+    .boot64 ALIGN(8) : {
+        KEEP(*(.boot64))
+    }
+
+    .boot.data ALIGN(4K) : {
+        KEEP(*(.boot.data))
+    }
+
+    /* -------------------------------------------------------------- *
+     *  Higher-half kernel — fixed start past the reserved boot area  *
+     * -------------------------------------------------------------- */
+    . = KERNEL_OFFSET + PHYS_BASE + BOOT_RESERVE;
 
     .requests ALIGN(8) : AT(ADDR(.requests) - KERNEL_OFFSET) {
         KEEP(*(.requests_start_marker))
@@ -27,8 +50,6 @@ SECTIONS {
     }
 
     .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_OFFSET) {
-        KEEP(*(.multiboot_header))
-        KEEP(*(.boot.text))
         *(.text .text.*)
     }
 
@@ -37,7 +58,6 @@ SECTIONS {
     }
 
     .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_OFFSET) {
-        KEEP(*(.boot.data))
         *(.data .data.*)
     }
 
@@ -46,6 +66,17 @@ SECTIONS {
         *(COMMON)
         *(.bss .bss.*)
         __bss_end = .;
+    }
+
+    /* ------------------------------------------------------------- *
+     *  Dedicated boot stack — placed AFTER `.bss` so `clear_bss`    *
+     *  cannot zero it, and exposed as a linker symbol so `_start`   *
+     *  can load `rsp` via `movabs` against an absolute VMA.         *
+     * ------------------------------------------------------------- */
+    .stack ALIGN(4K) : AT(ADDR(.stack) - KERNEL_OFFSET) {
+        __kernel_stack_bottom = .;
+        . = . + 64K;
+        __kernel_stack_top    = .;
     }
 
     __kernel_end = .;

@@ -7,9 +7,9 @@
 //!
 //! Everything else gets a generic spurious-IRQ handler.
 use core::sync::atomic::{AtomicU64, Ordering};
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 use super::apic;
+use super::idt::{set, InterruptFrame};
 
 /// Vector offsets — keep clear of CPU exceptions (0..32).
 #[repr(u8)]
@@ -24,17 +24,20 @@ pub enum HwIrq {
 
 static TIMER_TICKS: AtomicU64 = AtomicU64::new(0);
 
-/// Install hardware IRQ handlers into a freshly built IDT.
-pub fn register_hardware_irqs(idt: &mut InterruptDescriptorTable) {
-    idt[HwIrq::Timer    as u8].set_handler_fn(timer);
-    idt[HwIrq::Keyboard as u8].set_handler_fn(keyboard);
-    idt[HwIrq::Nic      as u8].set_handler_fn(nic);
-    idt[HwIrq::Block    as u8].set_handler_fn(block);
-    idt[HwIrq::Spurious as u8].set_handler_fn(spurious);
+/// Install hardware IRQ handlers into the live IDT.  Must run after
+/// `idt::init` has loaded IDTR — entries are written by `idt::set`,
+/// which mutates the same static IDT table directly.
+pub fn register_hardware_irqs() {
+    set(HwIrq::Timer    as u8, timer);
+    set(HwIrq::Keyboard as u8, keyboard);
+    set(HwIrq::Nic      as u8, nic);
+    set(HwIrq::Block    as u8, block);
+    set(HwIrq::Spurious as u8, spurious);
 }
 
 /// Globally enable IRQs after the IDT is loaded.
 pub fn init() {
+    register_hardware_irqs();
     super::cpu::enable_interrupts();
     log::debug!("[interrupts] hardware IRQs enabled");
 }
@@ -43,28 +46,28 @@ pub fn init() {
 #[inline]
 pub fn ticks() -> u64 { TIMER_TICKS.load(Ordering::Relaxed) }
 
-extern "x86-interrupt" fn timer(_: InterruptStackFrame) {
+extern "x86-interrupt" fn timer(_: InterruptFrame) {
     TIMER_TICKS.fetch_add(1, Ordering::Relaxed);
     crate::sched::reactor::on_timer_tick();
     apic::eoi();
 }
 
-extern "x86-interrupt" fn keyboard(_: InterruptStackFrame) {
+extern "x86-interrupt" fn keyboard(_: InterruptFrame) {
     crate::drivers::console::on_keyboard_irq();
     apic::eoi();
 }
 
-extern "x86-interrupt" fn nic(_: InterruptStackFrame) {
+extern "x86-interrupt" fn nic(_: InterruptFrame) {
     crate::drivers::nic::on_irq();
     apic::eoi();
 }
 
-extern "x86-interrupt" fn block(_: InterruptStackFrame) {
+extern "x86-interrupt" fn block(_: InterruptFrame) {
     crate::drivers::block::on_irq();
     apic::eoi();
 }
 
-extern "x86-interrupt" fn spurious(_: InterruptStackFrame) {
+extern "x86-interrupt" fn spurious(_: InterruptFrame) {
     log::trace!("[interrupts] spurious");
     apic::eoi();
 }

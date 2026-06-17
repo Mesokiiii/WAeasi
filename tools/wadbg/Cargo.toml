@@ -1,0 +1,14 @@
+[package]
+name        = "wadbg"
+description = "WAeasi crash-dump debugger: parses kernel exception output, resolves RIPs to source locations via DWARF, decodes architectural error codes."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "wadbg"
+path = "src/main.rs"
+
+[dependencies]
+addr2line = { version = "0.24", default-features = false, features = ["std", "rustc-demangle", "loader"] }
